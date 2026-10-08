@@ -1,0 +1,381 @@
+// Mirrors schema_v0.2.sql (flows v0.2), with these agreed changes:
+//   * practitioners.role  — admins are practitioners with role = admin
+//   * result_flag         — the Mimatest report's 5 levels instead of 3
+//   * sessions            — login sessions (not in schema v0.2)
+// Table and column names match the SQL spec via @@map / @map.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pgcrypto, vector]
+}
+
+enum Role {
+  practitioner
+  admin
+
+  @@map("practitioner_role")
+}
+
+enum KitStatus {
+  awaiting_results
+  results_uploaded
+  sent_to_client
+
+  @@map("kit_status")
+}
+
+enum DocumentType {
+  mimatest_report
+  food_guide
+
+  @@map("document_type")
+}
+
+enum EmailStatus {
+  queued
+  sent
+  failed
+
+  @@map("email_status")
+}
+
+enum ResultFlag {
+  low
+  below_optimal
+  optimal
+  above_optimal
+  high
+
+  @@map("result_flag")
+}
+
+enum ChatRole {
+  user
+  assistant
+
+  @@map("chat_role")
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  needs_info
+  rejected
+
+  @@map("review_status")
+}
+
+// ---------------------------------------------------------------------
+// Practitioners (login + verification)
+// ---------------------------------------------------------------------
+model Practitioner {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName     String   @map("full_name")
+  email        String   @unique // login, stored lowercase
+  passwordHash String   @map("password_hash") // Argon2id
+  role         Role     @default(practitioner)
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions      Session[]
+  credentials   PractitionerCredential[] @relation("credentialOwner")
+  reviewed      PractitionerCredential[] @relation("credentialReviewer")
+  profile       PractitionerProfile?
+  clients       Client[]
+  uploads       ClientDocument[]
+  emailMessages EmailMessage[]
+  chatSessions  ChatSession[]
+  auditLogs     AuditLog[]
+
+  @@map("practitioners")
+}
+
+model Session {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  practitionerId String       @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  tokenHash      String       @unique @map("token_hash") // SHA-256 of the cookie token
+  expiresAt      DateTime     @map("expires_at") @db.Timestamptz
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([practitionerId])
+  @@map("sessions")
+}
+
+// Uploaded license / diploma files for admin review
+model PractitionerCredential {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  practitionerId String        @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner  @relation("credentialOwner", fields: [practitionerId], references: [id], onDelete: Cascade)
+  filePath       String        @map("file_path") // private storage, never public
+  originalName   String        @map("original_name")
+  mimeType       String        @map("mime_type")
+  reviewStatus   ReviewStatus  @default(pending) @map("review_status")
+  reviewerNote   String?       @map("reviewer_note")
+  reviewedBy     String?       @map("reviewed_by") @db.Uuid
+  reviewer       Practitioner? @relation("credentialReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime?     @map("reviewed_at") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([practitionerId], map: "idx_credentials_practitioner")
+  @@map("practitioner_credentials")
+}
+
+// ---------------------------------------------------------------------
+// Professional profile (1:1 with practitioner, public-facing data)
+// ---------------------------------------------------------------------
+model PractitionerProfile {
+  practitionerId   String       @id @map("practitioner_id") @db.Uuid
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  slug             String       @unique // public URL, e.g. /p/dr-lipo
+  displayName      String       @map("display_name")
+  headline         String?
+  bio              String?
+  specialty        String?
+  clinicName       String?      @map("clinic_name")
+  city             String?
+  languages        String[]     @default([])
+  publicEmail      String?      @map("public_email")
+  publicPhone      String?      @map("public_phone")
+  profileImagePath String?      @map("profile_image_path")
+  coverImagePath   String?      @map("cover_image_path")
+  isPublic         Boolean      @default(false) @map("is_public")
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("practitioner_profiles")
+}
+
+// ---------------------------------------------------------------------
+// Clients (personal data encrypted at application level; soft delete)
+// ---------------------------------------------------------------------
+model Client {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  practitionerId String       @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Restrict)
+  fullNameEnc    Bytes        @map("full_name_enc")
+  emailEnc       Bytes        @map("email_enc")
+  emailHash      Bytes        @map("email_hash") // HMAC of lowercase email
+  phoneEnc       Bytes?       @map("phone_enc")
+  dateOfBirthEnc Bytes?       @map("date_of_birth_enc")
+  sex            String? // 'F' | 'M' | 'other' (CHECK added in migration)
+  notesEnc       Bytes?       @map("notes_enc")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt     DateTime?    @map("archived_at") @db.Timestamptz
+
+  testKits      TestKit[]
+  documents     ClientDocument[]
+  emailMessages EmailMessage[]
+
+  @@unique([practitionerId, emailHash], map: "uq_clients_email_per_practitioner", where: raw("archived_at IS NULL"))
+  @@index([practitionerId], map: "idx_clients_practitioner_active", where: raw("archived_at IS NULL"))
+  @@map("clients")
+}
+
+// ---------------------------------------------------------------------
+// Test kits (codes printed in the Mimatest box, entered by practitioner)
+// ---------------------------------------------------------------------
+model TestKit {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId      String    @map("client_id") @db.Uuid
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  kitCode       String    @unique @map("kit_code") // a box can only be used once
+  accessCodeEnc Bytes     @map("access_code_enc")
+  status        KitStatus @default(awaiting_results)
+  sampleDate    DateTime? @map("sample_date") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  documents     ClientDocument[]
+  markerResults MarkerResult[]
+  chatSessions  ChatSession[]
+
+  @@index([clientId], map: "idx_test_kits_client")
+  @@map("test_kits")
+}
+
+// ---------------------------------------------------------------------
+// Client documents: Mimatest report and food guide
+// ---------------------------------------------------------------------
+model ClientDocument {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId     String       @map("client_id") @db.Uuid
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  testKitId    String?      @map("test_kit_id") @db.Uuid // required for reports (CHECK in migration)
+  testKit      TestKit?     @relation(fields: [testKitId], references: [id], onDelete: SetNull)
+  uploadedBy   String       @map("uploaded_by") @db.Uuid
+  uploader     Practitioner @relation(fields: [uploadedBy], references: [id])
+  docType      DocumentType @map("doc_type")
+  filePath     String       @map("file_path")
+  originalName String       @map("original_name")
+  mimeType     String       @map("mime_type")
+  sizeBytes    BigInt       @map("size_bytes")
+  sha256       String
+  version      Int          @default(1)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt   DateTime?    @map("archived_at") @db.Timestamptz
+
+  markerResults MarkerResult[]
+  emailLinks    EmailMessageDocument[]
+
+  @@index([clientId], map: "idx_client_documents_client")
+  @@map("client_documents")
+}
+
+// ---------------------------------------------------------------------
+// Marker catalog and values extracted from the Mimatest report
+// ---------------------------------------------------------------------
+model Marker {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  name          String
+  category      String
+  unit          String?
+  defaultRefMin Decimal? @map("default_ref_min")
+  defaultRefMax Decimal? @map("default_ref_max")
+  description   String?
+
+  results MarkerResult[]
+
+  @@map("markers")
+}
+
+model MarkerResult {
+  id               BigInt          @id @default(autoincrement())
+  testKitId        String          @map("test_kit_id") @db.Uuid
+  testKit          TestKit         @relation(fields: [testKitId], references: [id], onDelete: Cascade)
+  sourceDocumentId String?         @map("source_document_id") @db.Uuid
+  sourceDocument   ClientDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  markerId         Int             @map("marker_id")
+  marker           Marker          @relation(fields: [markerId], references: [id])
+  value            Decimal
+  unit             String?
+  refMin           Decimal?        @map("ref_min")
+  refMax           Decimal?        @map("ref_max")
+  flag             ResultFlag? // computed by backend, not by the AI
+  confirmed        Boolean         @default(false)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([testKitId, markerId])
+  @@map("marker_results")
+}
+
+// ---------------------------------------------------------------------
+// Emails to clients (documents delivered as expiring secure links)
+// ---------------------------------------------------------------------
+model EmailMessage {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  practitionerId String       @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id])
+  clientId       String       @map("client_id") @db.Uuid
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  subject        String
+  body           String
+  status         EmailStatus  @default(queued)
+  errorMessage   String?      @map("error_message")
+  sentAt         DateTime?    @map("sent_at") @db.Timestamptz
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  documents EmailMessageDocument[]
+
+  @@index([clientId], map: "idx_email_messages_client")
+  @@map("email_messages")
+}
+
+model EmailMessageDocument {
+  emailId       String         @map("email_id") @db.Uuid
+  email         EmailMessage   @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  documentId    String         @map("document_id") @db.Uuid
+  document      ClientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  linkTokenHash String         @unique @map("link_token_hash")
+  expiresAt     DateTime       @map("expires_at") @db.Timestamptz
+  firstOpenedAt DateTime?      @map("first_opened_at") @db.Timestamptz
+  openCount     Int            @default(0) @map("open_count")
+
+  @@id([emailId, documentId])
+  @@map("email_message_documents")
+}
+
+// ---------------------------------------------------------------------
+// Chatbot: sessions scoped to one practitioner + one test kit
+// ---------------------------------------------------------------------
+model ChatSession {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  practitionerId String       @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  testKitId      String?      @map("test_kit_id") @db.Uuid
+  testKit        TestKit?     @relation(fields: [testKitId], references: [id], onDelete: SetNull)
+  title          String?
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  messages ChatMessage[]
+
+  @@index([practitionerId], map: "idx_chat_sessions_practitioner")
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        BigInt      @id @default(autoincrement())
+  sessionId String      @map("session_id") @db.Uuid
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatRole
+  content   String
+  sources   Json? // knowledge chunks cited
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([sessionId], map: "idx_chat_messages_session")
+  @@map("chat_messages")
+}
+
+// ---------------------------------------------------------------------
+// Knowledge base for RAG (HNSW index is added with flow E)
+// ---------------------------------------------------------------------
+model KnowledgeDocument {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  sourceType String   @map("source_type") // lecture / marker_note / protocol
+  language   String   @default("en")
+  filePath   String?  @map("file_path")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  chunks KnowledgeChunk[]
+
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id         BigInt                       @id @default(autoincrement())
+  documentId String                       @map("document_id") @db.Uuid
+  document   KnowledgeDocument            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int                          @map("chunk_index")
+  content    String
+  embedding  Unsupported("vector(1024)")?
+  metadata   Json?
+
+  @@unique([documentId, chunkIndex])
+  @@map("knowledge_chunks")
+}
+
+// ---------------------------------------------------------------------
+// Audit log
+// ---------------------------------------------------------------------
+model AuditLog {
+  id             BigInt        @id @default(autoincrement())
+  practitionerId String?       @map("practitioner_id") @db.Uuid
+  practitioner   Practitioner? @relation(fields: [practitionerId], references: [id], onDelete: SetNull)
+  action         String // create / view / update / archive / upload / send / login ...
+  entityType     String        @map("entity_type")
+  entityId       String?       @map("entity_id")
+  ipAddress      String?       @map("ip_address") @db.Inet
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([practitionerId, createdAt], map: "idx_audit_logs_practitioner")
+  @@map("audit_logs")
+}
