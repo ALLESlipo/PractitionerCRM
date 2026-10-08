@@ -29,7 +29,9 @@ npm run admin:create -- admin@example.com "Admin Name"   # first admin account
 npm run dev                 # http://localhost:3000
 ```
 
-Practitioners sign up at `/signup`, upload credentials, and are verified by an admin at `/admin`.
+The public landing page is at `/`. Practitioners sign up at `/signup`, upload credentials, and are verified by an admin at `/admin`; verified practitioners work from `/dashboard`.
+
+Landing page photos are in `public/assets/images` (credits in `CREDITS.md` there). The product name shown in the UI is set in `src/lib/brand.ts`.
 
 ## Scripts
 

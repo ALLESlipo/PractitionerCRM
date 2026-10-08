@@ -70,10 +70,10 @@ export async function requireVerified(): Promise<CurrentUser> {
 
 export async function requireAdmin(): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== "admin") redirect("/");
+  if (user.role !== "admin") redirect("/dashboard");
   return user;
 }
 
 /** Where a user should land after logging in. */
 export const homeFor = (user: Pick<CurrentUser, "role" | "verified">) =>
-  user.role === "admin" ? "/admin" : user.verified ? "/" : "/onboarding";
+  user.role === "admin" ? "/admin" : user.verified ? "/dashboard" : "/onboarding";
