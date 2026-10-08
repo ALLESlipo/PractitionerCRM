@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser, homeFor } from "@/lib/auth";
-import { BRAND } from "@/lib/brand";
+import { LandingHeader } from "@/components/landing-header";
 import { Logo } from "@/components/logo";
 
 // Public landing page. Everything here is static except the header's account
@@ -57,6 +57,13 @@ const credits = [
 export default function LandingPage() {
   return (
     <div className="bg-stone-50 text-slate-900">
+      <LandingHeader
+        account={
+          <Suspense fallback={<GuestButtons />}>
+            <AccountButton />
+          </Suspense>
+        }
+      />
       <Hero />
       <TrustStrip />
       <HowItWorks />
@@ -74,25 +81,23 @@ async function AccountButton() {
   const user = await getCurrentUser();
   if (!user) return <GuestButtons />;
   return (
-    <Link
-      href={homeFor(user)}
-      className="whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900 shadow-sm transition hover:bg-emerald-50"
-    >
+    <Link href={homeFor(user)} className={primaryPill}>
       Open your dashboard
     </Link>
   );
 }
 
+const pill = "inline-flex items-center whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition md:py-2";
+const primaryPill = `${pill} bg-white text-teal-900 shadow-sm hover:bg-emerald-50 group-data-[solid=true]:bg-teal-800 group-data-[solid=true]:text-white group-data-[solid=true]:hover:bg-teal-900`;
+const secondaryPill = `${pill} font-medium text-white/90 hover:text-white group-data-[solid=true]:text-slate-700 group-data-[solid=true]:hover:text-teal-900 max-md:border max-md:border-slate-300`;
+
 function GuestButtons() {
   return (
     <>
-      <Link href="/login" className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium text-white/90 transition hover:text-white sm:px-4">
+      <Link href="/login" className={secondaryPill}>
         Log in
       </Link>
-      <Link
-        href="/signup"
-        className="whitespace-nowrap rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900 shadow-sm transition hover:bg-emerald-50 sm:px-5"
-      >
+      <Link href="/signup" className={primaryPill}>
         Get started
       </Link>
     </>
@@ -101,7 +106,7 @@ function GuestButtons() {
 
 function Hero() {
   return (
-    <section className="relative isolate flex min-h-[92vh] flex-col overflow-hidden">
+    <section className="relative isolate flex flex-col overflow-hidden sm:min-h-[92vh]">
       <Image
         src={`${IMG}/hero-gut-bowl.jpg`}
         alt="A colourful bowl of vegetables, chickpeas and greens"
@@ -111,47 +116,31 @@ function Hero() {
         className="-z-20 object-cover"
       />
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-teal-950/95 via-teal-950/80 to-teal-950/20" />
-      <div className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-stone-50 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 -z-10 h-20 bg-gradient-to-t from-stone-50 to-transparent sm:h-40" />
 
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-5 sm:gap-4 sm:px-6 sm:py-6">
-        <Link href="/" aria-label={`${BRAND} home`}>
-          <Logo light compact />
-        </Link>
-        <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex">
-          <a href="#how" className="transition hover:text-white">How it works</a>
-          <a href="#features" className="transition hover:text-white">Features</a>
-          <a href="#privacy" className="transition hover:text-white">Privacy</a>
-        </nav>
-        <div className="flex items-center gap-1">
-          <Suspense fallback={<GuestButtons />}>
-            <AccountButton />
-          </Suspense>
-        </div>
-      </header>
-
-      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-28 pt-8 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-4 pt-28 pb-24 sm:px-6 sm:pt-32 sm:pb-32 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="max-w-2xl">
-          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-emerald-100 backdrop-blur">
+          <p className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide text-emerald-100 backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
             Built for gut health practitioners
           </p>
-          <h1 className="font-display text-4xl leading-[1.05] font-semibold tracking-tight text-white sm:text-6xl">
+          <h1 className="font-display text-[2.4rem] leading-[1.08] font-semibold tracking-tight text-balance text-white sm:text-6xl sm:leading-[1.05]">
             Every Mimatest result, turned into a clear plan for your client.
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 sm:mt-6 sm:text-lg">
             Manage clients and test kits, deliver reports and food guides securely, and get AI support
             grounded in the sources you trust, all in one calm, private workspace.
           </p>
-          <div className="mt-10 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               href="/signup"
-              className="rounded-full bg-emerald-300 px-7 py-3 text-sm font-semibold text-teal-950 shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-200"
+              className="rounded-full bg-emerald-300 px-7 py-3.5 text-center text-sm font-semibold text-teal-950 shadow-lg shadow-emerald-900/30 transition hover:bg-emerald-200 sm:py-3"
             >
               Apply as a practitioner
             </Link>
             <a
               href="#how"
-              className="rounded-full border border-white/30 px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              className="rounded-full border border-white/30 bg-white/5 px-7 py-3.5 text-center text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/10 sm:py-3"
             >
               See how it works
             </a>
@@ -216,12 +205,12 @@ function TrustStrip() {
     { k: "Audited", v: "Every view and change is logged" },
   ];
   return (
-    <section className="relative z-10 mx-auto -mt-16 w-full max-w-6xl px-6">
-      <div className="grid gap-px overflow-hidden rounded-2xl bg-slate-200 shadow-xl shadow-slate-900/5 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="relative z-10 mx-auto -mt-12 w-full max-w-6xl px-4 sm:-mt-16 sm:px-6">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-slate-200 shadow-xl shadow-slate-900/5 lg:grid-cols-4">
         {items.map((i) => (
-          <div key={i.k} className="bg-white px-6 py-5">
-            <p className="font-display text-lg font-semibold text-teal-900">{i.k}</p>
-            <p className="mt-1 text-sm text-slate-600">{i.v}</p>
+          <div key={i.k} className="bg-white px-4 py-4 sm:px-6 sm:py-5">
+            <p className="font-display text-base font-semibold text-teal-900 sm:text-lg">{i.k}</p>
+            <p className="mt-1 text-xs leading-snug text-slate-600 sm:text-sm">{i.v}</p>
           </div>
         ))}
       </div>
@@ -233,24 +222,24 @@ function SectionHeading({ eyebrow, title, children }: { eyebrow: string; title: 
   return (
     <div className="max-w-2xl">
       <p className="text-sm font-semibold tracking-widest text-teal-700 uppercase">{eyebrow}</p>
-      <h2 className="font-display mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">{title}</h2>
-      {children && <p className="mt-4 text-lg leading-relaxed text-slate-600">{children}</p>}
+      <h2 className="font-display mt-3 text-[1.75rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
+      {children && <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">{children}</p>}
     </div>
   );
 }
 
 function HowItWorks() {
   return (
-    <section id="how" className="mx-auto w-full max-w-6xl scroll-mt-8 px-6 py-24 sm:py-32">
-      <div className="grid items-center gap-16 lg:grid-cols-2">
+    <section id="how" className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-32">
+      <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div>
           <SectionHeading eyebrow="How it works" title="From the box to a confident conversation">
             Four steps that follow the way you already work with Mimatest.
           </SectionHeading>
-          <ol className="mt-10 space-y-8">
+          <ol className="mt-8 space-y-6 sm:mt-10 sm:space-y-8">
             {steps.map((s, i) => (
               <li key={s.title} className="flex gap-5">
-                <span className="font-display flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-900 text-lg font-semibold text-emerald-200">
+                <span className="font-display flex h-10 w-10 shrink-0 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-teal-900 text-lg font-semibold text-emerald-200">
                   {i + 1}
                 </span>
                 <div>
@@ -262,7 +251,7 @@ function HowItWorks() {
           </ol>
         </div>
         <div className="relative">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-2xl shadow-teal-950/20">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-2xl shadow-teal-950/20 sm:aspect-[4/5]">
             <Image
               src={`${IMG}/lab-microscope.jpg`}
               alt="A scientist examining a sample through a microscope"
@@ -303,13 +292,13 @@ function Feature({
   reverse?: boolean;
 }) {
   return (
-    <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-      <div className={`relative aspect-[4/3] overflow-hidden rounded-3xl shadow-xl shadow-slate-900/10 ${reverse ? "lg:order-2" : ""}`}>
+    <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-20">
+      <div className={`relative aspect-[3/2] overflow-hidden rounded-3xl shadow-xl shadow-slate-900/10 sm:aspect-[4/3] ${reverse ? "lg:order-2" : ""}`}>
         <Image src={`${IMG}/${image}`} alt={alt} fill sizes="(min-width: 1024px) 45vw, 100vw" className="object-cover" />
       </div>
       <div>
         <SectionHeading eyebrow={eyebrow} title={title} />
-        <ul className="mt-8 space-y-4">
+        <ul className="mt-6 space-y-4 sm:mt-8">
           {points.map((p) => (
             <li key={p} className="flex gap-3 leading-relaxed text-slate-700">
               <svg viewBox="0 0 20 20" className="mt-1 h-5 w-5 shrink-0 text-teal-600" fill="currentColor" aria-hidden="true">
@@ -330,8 +319,8 @@ function Feature({
 
 function Features() {
   return (
-    <section id="features" className="scroll-mt-8 bg-white py-24 sm:py-32">
-      <div className="mx-auto w-full max-w-6xl space-y-24 px-6 sm:space-y-32">
+    <section id="features" className="bg-white py-16 sm:py-32">
+      <div className="mx-auto w-full max-w-6xl space-y-16 px-4 sm:space-y-32 sm:px-6">
         <Feature
           image="practitioner-consultation.jpg"
           alt="A nutritionist at her desk with a laptop and a bowl of fruit"
@@ -379,22 +368,22 @@ function Privacy() {
     ["A full audit trail", "Logins, views, uploads, edits and denied attempts are all recorded."],
   ];
   return (
-    <section id="privacy" className="scroll-mt-8 bg-teal-950 py-24 text-white sm:py-32">
-      <div className="mx-auto w-full max-w-6xl px-6">
+    <section id="privacy" className="bg-teal-950 py-16 text-white sm:py-32">
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="max-w-2xl">
           <p className="text-sm font-semibold tracking-widest text-emerald-300 uppercase">Privacy by design</p>
-          <h2 className="font-display mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
+          <h2 className="font-display mt-3 text-[1.75rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
             Health data deserves more than a password
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-white/70">
+          <p className="mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
             Built around GDPR-aligned rules from the first line of code. The platform supports your judgement;
             it never diagnoses on its own.
           </p>
         </div>
-        <div className="mt-14 grid gap-6 sm:grid-cols-2">
+        <div className="mt-10 grid gap-4 sm:mt-14 sm:grid-cols-2 sm:gap-6">
           {rules.map(([title, text]) => (
-            <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h3 className="font-display text-xl font-semibold text-emerald-200">{title}</h3>
+            <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-5 sm:p-6">
+              <h3 className="font-display text-lg font-semibold text-emerald-200 sm:text-xl">{title}</h3>
               <p className="mt-2 leading-relaxed text-white/75">{text}</p>
             </div>
           ))}
@@ -406,7 +395,7 @@ function Privacy() {
 
 function ClosingCta() {
   return (
-    <section className="relative isolate overflow-hidden py-28 sm:py-36">
+    <section className="relative isolate overflow-hidden py-20 sm:py-36">
       <Image
         src={`${IMG}/wellbeing-walk.jpg`}
         alt="A person walking along a sunlit forest path"
@@ -415,23 +404,23 @@ function ClosingCta() {
         className="-z-20 object-cover"
       />
       <div className="absolute inset-0 -z-10 bg-teal-950/70" />
-      <div className="mx-auto max-w-3xl px-6 text-center text-white">
-        <h2 className="font-display text-3xl leading-tight font-semibold tracking-tight sm:text-5xl">
+      <div className="mx-auto max-w-3xl px-4 text-center text-white sm:px-6">
+        <h2 className="font-display text-[1.9rem] leading-tight font-semibold tracking-tight text-balance sm:text-5xl">
           Give every client a clearer path forward.
         </h2>
-        <p className="mx-auto mt-5 max-w-xl text-lg text-white/80">
+        <p className="mx-auto mt-5 max-w-xl text-base text-white/80 sm:text-lg">
           Join as a verified practitioner and bring your Mimatest work into one secure workspace.
         </p>
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mx-auto mt-8 flex max-w-xs flex-col gap-3 sm:mt-10 sm:max-w-none sm:flex-row sm:justify-center">
           <Link
             href="/signup"
-            className="rounded-full bg-emerald-300 px-8 py-3 text-sm font-semibold text-teal-950 transition hover:bg-emerald-200"
+            className="rounded-full bg-emerald-300 px-8 py-3.5 text-sm font-semibold text-teal-950 transition hover:bg-emerald-200 sm:py-3"
           >
             Apply as a practitioner
           </Link>
           <Link
             href="/login"
-            className="rounded-full border border-white/40 px-8 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="rounded-full border border-white/40 px-8 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 sm:py-3"
           >
             Log in
           </Link>
@@ -444,7 +433,7 @@ function ClosingCta() {
 function Footer() {
   return (
     <footer className="bg-stone-50">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-slate-500 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 text-sm text-slate-500 sm:px-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Logo />
           <p className="mt-3 max-w-sm">A support tool for gut health practitioners. It does not provide medical diagnoses.</p>

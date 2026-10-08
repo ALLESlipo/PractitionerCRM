@@ -10,3 +10,15 @@ body {
   color: #0f172a;
   font-family: var(--font-sans);
 }
+
+/* Smooth in-page scrolling (landing menu); off for users who prefer reduced motion.
+   Next keeps route changes instant because <html> has data-scroll-behavior="smooth". */
+html {
+  scroll-padding-top: 5.5rem; /* clear the fixed landing header */
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

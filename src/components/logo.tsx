@@ -1,12 +1,9 @@
 import { BRAND } from "@/lib/brand";
 
-/**
- * Wordmark with a simple gut-loop mark. `light` for use on dark/photo backgrounds;
- * `compact` hides the name on very narrow screens.
- */
-export function Logo({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {
+/** Wordmark with a simple gut-loop mark. `light` for use on dark/photo backgrounds. */
+export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-2 font-semibold ${light ? "text-white" : "text-teal-900"}`}>
+    <span className={`inline-flex items-center gap-2 font-semibold transition-colors ${light ? "text-white" : "text-teal-900"}`}>
       <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden="true">
         <rect width="32" height="32" rx="9" className={light ? "fill-white/15" : "fill-teal-700"} />
         <path
@@ -18,7 +15,7 @@ export function Logo({ light = false, compact = false }: { light?: boolean; comp
         />
         <circle cx="23" cy="22" r="1.9" fill={light ? "#a7f3d0" : "#ccfbf1"} />
       </svg>
-      <span className={`font-display text-lg tracking-tight ${compact ? "max-[420px]:sr-only" : ""}`}>{BRAND}</span>
+      <span className="font-display text-lg tracking-tight">{BRAND}</span>
     </span>
   );
 }
